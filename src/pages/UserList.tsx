@@ -20,10 +20,30 @@ const UserList: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<
+    "first_name" | "last_name" | "email" | null
+  >(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
 
   useEffect(() => {
     fetchUsers();
   }, [currentPage]);
+
+  useEffect(() => {
+    let sortedUsers = [...filteredUsers];
+    if (sortField) {
+      sortedUsers.sort((a, b) => {
+        const valueA = a[sortField].toLowerCase();
+        const valueB = b[sortField].toLowerCase();
+        if (sortDirection === "asc") {
+          return valueA > valueB ? 1 : -1;
+        }
+        return valueA < valueB ? 1 : -1;
+      });
+    }
+    setFilteredUsers(sortedUsers);
+  }, [sortField, sortDirection, users]);
 
   const fetchUsers = async () => {
     try {
@@ -31,6 +51,7 @@ const UserList: React.FC = () => {
       setUsers(response.data);
       setFilteredUsers(response.data);
       setTotalPages(response.total_pages);
+      setSelectedUsers([]); // Reset selection on page change
     } catch (error) {
       toast.error("Failed to fetch users");
     } finally {
@@ -65,6 +86,33 @@ const UserList: React.FC = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete ${selectedUsers.length} users?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await Promise.all(selectedUsers.map((id) => deleteUser(id)));
+      toast.success("Selected users deleted successfully");
+      setSelectedUsers([]);
+      fetchUsers();
+    } catch (error) {
+      toast.error("Failed to delete users");
+    }
+  };
+
+  const handleSelect = (userId: number) => {
+    setSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/login");
@@ -96,6 +144,32 @@ const UserList: React.FC = () => {
                   />
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
+                <select
+                  value={sortField || ""}
+                  onChange={(e) =>
+                    setSortField(
+                      e.target.value as
+                        | "first_name"
+                        | "last_name"
+                        | "email"
+                        | null
+                    )
+                  }
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Sort by...</option>
+                  <option value="first_name">First Name</option>
+                  <option value="last_name">Last Name</option>
+                  <option value="email">Email</option>
+                </select>
+                <button
+                  onClick={() =>
+                    setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+                  }
+                  className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  {sortDirection === "asc" ? "↑ Asc" : "↓ Desc"}
+                </button>
                 <button
                   onClick={handleLogout}
                   className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
@@ -107,10 +181,38 @@ const UserList: React.FC = () => {
             </div>
           </div>
 
+          {selectedUsers.length > 0 && (
+            <div className="p-4 border-b border-gray-200">
+              <button
+                onClick={handleBulkDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                Delete Selected ({selectedUsers.length})
+              </button>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedUsers.length === filteredUsers.length &&
+                        filteredUsers.length > 0
+                      }
+                      onChange={() =>
+                        setSelectedUsers(
+                          selectedUsers.length === filteredUsers.length
+                            ? []
+                            : filteredUsers.map((user) => user.id)
+                        )
+                      }
+                      className="h-4 w-4 text-indigo-600 rounded"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Avatar
                   </th>
@@ -131,6 +233,14 @@ const UserList: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.map((user) => (
                   <tr key={user.id}>
+                    <td className="px-6 py-4 whitespace-nowrap w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(user.id)}
+                        onChange={() => handleSelect(user.id)}
+                        className="h-4 w-4 text-indigo-600 rounded"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <img
                         src={user.avatar}
