@@ -9,8 +9,8 @@ Check out the live deployment here:
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/your-username/user-management-dashboard.git
-cd user-management-dashboard
+git clone https://github.com/Niraj1910/EmployWise-Front-End-Assignment.git
+cd EmployWise-Front-End-Assignment
 ```
 ## How to Run the Project
 ```bash
